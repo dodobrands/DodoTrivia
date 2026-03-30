@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Викторина о Додо</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f23;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 24px 16px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 8px;
+            color: #ff6b35;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 32px;
+            font-size: 0.95rem;
+        }
+
+        .card {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+            border: 1px solid #2a2a4a;
+        }
+
+        .counter {
+            text-align: center;
+            margin-bottom: 16px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .question {
+            font-size: 1.15rem;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .options { display: grid; gap: 10px; }
+
+        .opt {
+            display: block;
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #2a2a4a;
+            border-radius: 12px;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            font-size: 0.95rem;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s;
+            line-height: 1.4;
+        }
+
+        .opt:hover { border-color: #ff6b35; }
+        .opt:disabled { cursor: default; }
+        .opt:disabled:hover { border-color: #2a2a4a; }
+        .opt.correct { border-color: #4caf50; background: #1a2e1a; color: #4caf50; }
+        .opt.wrong { border-color: #f44336; background: #2e1a1a; color: #f44336; }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #2a2a4a;
+            border-radius: 3px;
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #ff6b35;
+            border-radius: 3px;
+            transition: width 0.4s ease;
+        }
+
+        .result {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .result-icon { font-size: 4rem; margin-bottom: 16px; }
+
+        .result-score {
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: #ff6b35;
+            margin-bottom: 4px;
+        }
+
+        .result-label {
+            color: #888;
+            font-size: 1.1rem;
+            margin-bottom: 24px;
+        }
+
+        .result-message {
+            font-size: 1.15rem;
+            color: #e0e0e0;
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+
+        .restart-btn {
+            display: inline-block;
+            padding: 14px 36px;
+            background: #ff6b35;
+            color: #fff;
+            border: none;
+            border-radius: 14px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .restart-btn:hover { background: #e55a2b; transform: scale(1.03); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍕 Викторина о Додо</h1>
+        <p class="subtitle">Проверь, насколько хорошо ты знаешь Додо!</p>
+        <div id="app"></div>
+    </div>
+
+    <script>
+    (function () {
+        const QUESTIONS = [
+            {
+                q: "В какой стране нет и не было Додо Пиццы или Дринкит?",
+                opts: ["Германия", "Испания", "Великобритания", "Португалия"],
+                ans: 3
+            },
+            {
+                q: "В чём заключался «парадокс ловушки» в Китае, из-за которого компания решила покинуть этот рынок весной 2021 года?",
+                opts: [
+                    "Высокая стоимость аренды делала бизнес убыточным в любой локации",
+                    "Для успеха нужно было измениться настолько, что компания перестала бы быть «Додо»",
+                    "Местные власти запретили использование облачной системы Dodo IS, так как в Китае закрытая сеть",
+                    "Китайским клиентам не понравилась пицца с дурианом, из-за этого посетители перестали посещать пиццерии"
+                ],
+                ans: 1
+            },
+            {
+                q: "Когда появился первый Дринкит?",
+                opts: ["2015", "2016", "2017", "2018"],
+                ans: 0
+            },
+            {
+                q: "Что именно сделал основатель «Додо Пиццы» Фёдор Овчинников, чтобы изучить бизнес общественного питания изнутри перед запуском сети?",
+                opts: [
+                    "Окончил кулинарную академию в Италии",
+                    "Устроился на работу в петербургский McDonald's, где днём мыл полы, а вечером изучал технологии",
+                    "Работал курьером в сети пиццерий Papa John's",
+                    "Прошёл стажировку в офисе Domino's"
+                ],
+                ans: 1
+            },
+            {
+                q: "Какое фундаментальное различие в управлении пиццерией зафиксировано в правилах «Додо» для разных зон работы?",
+                opts: [
+                    "Везде действуют только жёсткие стандарты",
+                    "На кухне — стандарты (никакой импровизации), на кассе — принципы (люди важнее процессов)",
+                    "На кухне — творчество, на кассе — строгий скрипт",
+                    "В зале — правила гостеприимства, в доставке — правила скорости"
+                ],
+                ans: 1
+            },
+            {
+                q: "В какой стране в 2014 году открылась первая «Додо Пицца» за пределами России?",
+                opts: ["Великобритания", "Казахстан", "Румыния", "Китай"],
+                ans: 2
+            },
+            {
+                q: "Какой официальный рекорд России по количеству пицц, приготовленных за сутки в одной пиццерии, установила команда в Самаре?",
+                opts: ["4 581 пицца", "7 908 пицц", "12 267 пицц", "15 020 пицц"],
+                ans: 2
+            },
+            {
+                q: "Сколько коротких уникальных стихов-рифм было придумано для масштабной рекламной кампании на ТВ в 2018 году?",
+                opts: ["10", "100", "500", "800"],
+                ans: 3
+            },
+            {
+                q: "Почему компания решила утилизировать тираж чековой ленты стоимостью 18 миллионов рублей?",
+                opts: [
+                    "Лента была плохого качества",
+                    "На ней был указан неверный телефон",
+                    "На ней была напечатана неактуальная фраза о том, что компания против замороженного сыра",
+                    "Лента должна была быть оранжевой, а получилась бордовой"
+                ],
+                ans: 2
+            },
+            {
+                q: "Что сделала менеджер в Казахстане, нарушив стандарты ради клиента, собиравшегося сделать предложение?",
+                opts: [
+                    "Бесплатно отдала весь заказ",
+                    "Закрыла пиццерию на спецобслуживание",
+                    "Вывела фото пары на мониторы и включила их музыку вместо «Додо FM»",
+                    "Разрешила паре сделать свадебную пиццу на кухне"
+                ],
+                ans: 2
+            },
+            {
+                q: "Какую сумму по ошибке вернула клиентам система «Додо ИС» в результате технического сбоя?",
+                opts: ["1 миллион рублей", "5 миллионов рублей", "8 миллионов рублей", "10 миллионов рублей"],
+                ans: 2
+            },
+            {
+                q: "В чём располагалась необычная пиццерия «Додо» на острове Виктория в Лагосе (Нигерия)?",
+                opts: ["В старом автобусе", "В морском контейнере", "В палатке", "В здании бывшего банка"],
+                ans: 1
+            },
+            {
+                q: "Как доставляли пиццу в Бишкеке во время жёсткого карантина и оцепления районов?",
+                opts: [
+                    "С помощью дронов",
+                    "На велосипедах по дворам",
+                    "Эстафетой: один курьер довозил до блокпоста, передавал заказ, и другой вёз дальше",
+                    "Бесконтактным способом: пиццу оставляли в назначенном месте и клиент приходил за ней сам"
+                ],
+                ans: 2
+            },
+            {
+                q: "Какой эксперимент на станции метро «Таганская» в Москве оказался успешным, несмотря на скептицизм экспертов?",
+                opts: [
+                    "Пиццерия без сотрудников (самообслуживание)",
+                    "Пиццерия с крошечным залом и форматом «горячее и готовое»",
+                    "Пиццерия, работающая только ночью",
+                    "Пиццерия, где пиццу делали в вагоне метро"
+                ],
+                ans: 1
+            },
+            {
+                q: "Как называется цифровая платформа «Додо» для сбора и анализа данных о вкусе продуктов от реальных клиентов?",
+                opts: ["R&Digital", "DodoIS", "Dodo Feedback", "Pizza Analytics"],
+                ans: 0
+            }
+        ];
+
+        const app = document.getElementById("app");
+        let questions, qIdx, score;
+
+        function start() {
+            questions = [...QUESTIONS].sort(() => Math.random() - 0.5);
+            qIdx = 0;
+            score = 0;
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            if (qIdx >= questions.length) {
+                renderResult();
+                return;
+            }
+
+            const item = questions[qIdx];
+            const pct = ((qIdx) / questions.length * 100).toFixed(0);
+
+            let html = `
+                <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+                <div class="counter">Вопрос ${qIdx + 1} из ${questions.length}</div>
+                <div class="card">
+                    <div class="question">${item.q}</div>
+                    <div class="options">`;
+
+            item.opts.forEach((opt, i) => {
+                html += `<button class="opt" data-idx="${i}">${opt}</button>`;
+            });
+
+            html += `</div></div>`;
+            app.innerHTML = html;
+
+            app.querySelectorAll(".opt").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const picked = parseInt(btn.dataset.idx);
+                    const correct = item.ans;
+
+                    app.querySelectorAll(".opt").forEach(b => {
+                        b.disabled = true;
+                        const bIdx = parseInt(b.dataset.idx);
+                        if (bIdx === correct) b.classList.add("correct");
+                        if (bIdx === picked && picked !== correct) b.classList.add("wrong");
+                    });
+
+                    if (picked === correct) score++;
+
+                    setTimeout(() => { qIdx++; renderQuestion(); }, 1500);
+                });
+            });
+        }
+
+        function renderResult() {
+            const pct = Math.round(score / questions.length * 100);
+            let icon, message;
+
+            if (pct === 100) {
+                icon = "🏆";
+                message = "Идеально! Ты настоящий знаток Додо!";
+            } else if (pct >= 80) {
+                icon = "🔥";
+                message = "Отличный результат! Ты знаешь Додо очень хорошо!";
+            } else if (pct >= 60) {
+                icon = "👍";
+                message = "Неплохо! Но есть что подучить.";
+            } else if (pct >= 40) {
+                icon = "🤔";
+                message = "Средний результат. Пора почитать про историю Додо!";
+            } else {
+                icon = "📚";
+                message = "Есть куда расти! Попробуй ещё раз?";
+            }
+
+            app.innerHTML = `
+                <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+                <div class="result">
+                    <div class="result-icon">${icon}</div>
+                    <div class="result-score">${score} / ${questions.length}</div>
+                    <div class="result-label">правильных ответов (${pct}%)</div>
+                    <div class="result-message">${message}</div>
+                    <button class="restart-btn" id="restart-btn">🔄 Пройти ещё раз</button>
+                </div>`;
+
+            document.getElementById("restart-btn").addEventListener("click", start);
+        }
+
+        start();
+    })();
+    </script>
+</body>
+</html>
