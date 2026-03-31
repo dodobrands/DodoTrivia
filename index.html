@@ -222,6 +222,25 @@
 
         .start-btn:hover { background: #e55a2b; transform: scale(1.03); }
 
+        #mute-btn {
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        #mute-btn:hover { background: rgba(255,255,255,0.2); }
+
         @media (max-width: 480px) {
             .container {
                 justify-content: flex-start;
@@ -263,6 +282,7 @@
     </style>
 </head>
 <body>
+    <button id="mute-btn" title="Звук">🔇</button>
     <div class="container">
         <div id="app"></div>
     </div>
@@ -1196,6 +1216,80 @@
             return h.toString(36);
         }
 
+        const AudioEngine = (() => {
+            let ctx = null, bgOscs = [], bgGain = null, bgInterval = null, muted = true;
+
+            function ac() {
+                if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+                return ctx;
+            }
+
+            function tone(freq, type, startT, duration, peakGain) {
+                if (muted) return;
+                const c = ac();
+                const osc = c.createOscillator();
+                const g = c.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, startT);
+                g.gain.setValueAtTime(0, startT);
+                g.gain.linearRampToValueAtTime(peakGain, startT + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.001, startT + duration);
+                osc.connect(g); g.connect(c.destination);
+                osc.start(startT); osc.stop(startT + duration);
+            }
+
+            return {
+                playCorrect() {
+                    if (muted) return;
+                    const c = ac(), t = c.currentTime;
+                    tone(523.25, 'sine', t,       0.25, 0.3);  // C5
+                    tone(659.25, 'sine', t + 0.08, 0.25, 0.3); // E5
+                    tone(783.99, 'sine', t + 0.16, 0.4,  0.3); // G5
+                },
+
+                playWrong() {
+                    if (muted) return;
+                    const c = ac(), t = c.currentTime;
+                    tone(220, 'sawtooth', t,       0.15, 0.2);
+                    tone(180, 'sawtooth', t + 0.1, 0.25, 0.15);
+                },
+
+                playTick(urgent) {
+                    if (muted) return;
+                    const c = ac(), t = c.currentTime;
+                    const osc = c.createOscillator();
+                    const g = c.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(urgent ? 1400 : 900, t);
+                    g.gain.setValueAtTime(urgent ? 0.18 : 0.07, t);
+                    g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+                    osc.connect(g); g.connect(c.destination);
+                    osc.start(t); osc.stop(t + 0.04);
+                },
+
+                startBg() {},
+
+                stopBg() {
+                    if (bgInterval) { clearInterval(bgInterval); bgInterval = null; }
+                    if (bgGain && ctx) {
+                        bgGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1);
+                        setTimeout(() => {
+                            bgOscs.forEach(o => { try { o.stop(); } catch(e) {} });
+                            bgOscs = [];
+                            bgGain = null;
+                        }, 1100);
+                    }
+                },
+
+                toggleMute() {
+                    muted = !muted;
+                    if (muted) { if (bgGain && ctx) bgGain.gain.setValueAtTime(0, ctx.currentTime); }
+                    else { if (bgGain && ctx) bgGain.gain.setValueAtTime(0.06, ctx.currentTime); }
+                    return muted;
+                }
+            };
+        })();
+
         const SESSION_SIZE = 15;
         const QUESTION_TIME = 60;
         const app = document.getElementById("app");
@@ -1212,7 +1306,7 @@
         function renderStart() {
             app.innerHTML = `
                 <div class="start-screen">
-                    <div class="start-logo">🍕</div>
+                    <div class="start-logo">🍕 🌯 ☕️</div>
                     <div class="start-title">Викторина о Додо</div>
                     <div class="start-subtitle">Насколько хорошо ты знаешь «Додо»?<br>${SESSION_SIZE} вопросов, чтобы проверить себя.</div>
                     <button class="start-btn" id="start-btn">Начать</button>
@@ -1224,6 +1318,7 @@
             questions = shuffle([...QUESTIONS]).slice(0, SESSION_SIZE);
             qIdx = 0;
             score = 0;
+            AudioEngine.startBg();
             renderQuestion();
         }
 
@@ -1288,7 +1383,7 @@
                     countdownEl.textContent = secondsLeft > 0 ? secondsLeft : 0;
                     countdownEl.classList.add("visible");
                 }
-                if (pct < 100) {
+if (pct < 100) {
                     timerInterval = requestAnimationFrame(tick);
                 } else {
                     timerInterval = null;
@@ -1312,7 +1407,8 @@
                         if (fnv(displayOpts[bi].text) === item.chk) b.classList.add("correct");
                         if (bi === di && !isCorrect) b.classList.add("wrong");
                     });
-                    if (isCorrect) score++;
+                    if (isCorrect) { score++; AudioEngine.playCorrect(); }
+                    else { AudioEngine.playWrong(); }
                     setTimeout(() => { qIdx++; renderQuestion(); }, 1500);
                 });
             });
@@ -1320,6 +1416,7 @@
 
         function renderResult() {
             stopTimer();
+            AudioEngine.stopBg();
             const pct = Math.round(score / questions.length * 100);
             let icon, message;
             if (pct === 100)      { icon = "🏆"; message = "Идеально! Ты настоящий знаток Додо!"; }
@@ -1339,6 +1436,11 @@
 
             document.getElementById("restart-btn").addEventListener("click", renderStart);
         }
+
+        document.getElementById("mute-btn").addEventListener("click", () => {
+            const m = AudioEngine.toggleMute();
+            document.getElementById("mute-btn").textContent = m ? "🔇" : "🔊";
+        });
 
         renderStart();
     })();
