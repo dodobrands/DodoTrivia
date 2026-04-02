@@ -6,6 +6,10 @@
 
 **https://dodobrands.github.io/DodoTrivia/**
 
+### QR-код
+
+Страница с QR-кодом для вывода на экран: **https://dodobrands.github.io/DodoTrivia/qr.html**
+
 ## Что внутри
 
 - 97 вопросов в пуле — каждая сессия случайно выбирает 15
